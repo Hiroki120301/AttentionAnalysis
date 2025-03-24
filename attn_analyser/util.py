@@ -73,7 +73,7 @@ def parse_args(args=None):
     parser.add_argument('--model', type=str, default=None, choices=["llama2-7b-chat-4k", "longchat-v1.5-7b-32k", "xgen-7b-8k",
                                                                     "internlm-7b-8k", "chatglm2-6b", "chatglm2-6b-32k",
                                                                     "chatglm3-6b-32k", "vicuna-v1.5-7b-16k", "LLaMA-2-7B-32K",
-                                                                    "LWM-Text-Chat-1M"])
+                                                                    "LWM-Text-Chat-1M", "Llama-3.2-1B"])
     return parser.parse_args(args)
 
 
