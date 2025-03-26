@@ -1,3 +1,4 @@
+import gc
 import json
 import torch
 import numpy as np
@@ -14,31 +15,31 @@ def analyze(rank, world_size, data, max_length, prompt_format, prompt_only_forma
     config = AutoConfig.from_pretrained(model_path)
     config._attn_implementation = "eager"
     tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
-    model = AutoModelForCausalLM.from_pretrained(model_path, config=config, torch_dtype=torch.bfloat16)
-    model = model.to(device)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        config=config,
+        torch_dtype=torch.float16,  # Or torch.float32 if memory is still an issue
+        device_map={"": rank}  # Ensures model is only loaded on assigned GPU
+    )
     model = model.eval()
 
-    torch.cuda.empty_cache()
+    gc.collect()
 
     for i, d in enumerate(tqdm(data)):
-        if i == 3 or i == 10:
-            continue
         prompt = prompt_format.format(**d)
         prompt_only = prompt_only_format.format(**d)
 
         prompt, _ = truncate_fn(prompt, prompt_only, tokenizer, max_length, dataset, device, model_name)
         input_ids = tokenizer(prompt, truncation=True, return_tensors="pt").input_ids.to(device)
+        gc.collect()
 
-        # Clear cache before inference
-        torch.cuda.empty_cache()
-        
         # Perform inference with no_grad
         with torch.no_grad():
-            outputs = model(input_ids, output_attentions=False)
+            outputs = model(input_ids, output_attentions=True)
         print(outputs.attentions)
         # Free memory and clear variables
         del input_ids, outputs
-        torch.cuda.empty_cache()
+        gc.collect()
 
 
 if __name__ == "__main__":
@@ -58,7 +59,7 @@ if __name__ == "__main__":
 
     torch.cuda.empty_cache()
     torch.cuda.ipc_collect()
-    torch.set_default_dtype(torch.bfloat16)
+    torch.set_default_dtype(torch.float16)
     dataset = args.task
     data = load_dataset('THUDM/LongBench', dataset, split='test[:10%]')
     prompt_format = dataset2prompt[dataset]
